@@ -27,10 +27,18 @@ class MarkdownStorage:
         if not self.operations_log.exists():
             self.operations_log.write_text("# Operations Log\n\n", encoding="utf-8")
 
+    def _resolve_unique_path(self, folder: Path, stem: str, ext: str = ".md", version_prefix: str = "_") -> Path:
+        path = folder / f"{stem}{ext}"
+        version = 2
+        while path.exists():
+            path = folder / f"{stem}{version_prefix}{version}{ext}"
+            version += 1
+        return path
+
     def save_capture(self, content: str, source: str, user_id: int) -> Path:
         ts = datetime.now(timezone.utc)
-        filename = f"{ts.strftime('%Y%m%d_%H%M%S')}_{user_id}.md"
-        path = self.inbox / filename
+        stem = f"{ts.strftime('%Y%m%d_%H%M%S_%f')}_{user_id}"
+        path = self._resolve_unique_path(self.inbox, stem)
         body = (
             f"# Capture\n\n"
             f"- created_at_utc: {ts.isoformat()}\n"
@@ -44,8 +52,8 @@ class MarkdownStorage:
 
     def create_review(self, period: str, user_id: int) -> Path:
         ts = datetime.now(timezone.utc)
-        filename = f"{period}_{ts.strftime('%Y%m%d')}_{user_id}.md"
-        path = self.reviews / filename
+        stem = f"{period}_{ts.strftime('%Y%m%d')}_{user_id}"
+        path = self._resolve_unique_path(self.reviews, stem, version_prefix="_v")
         template = (
             f"# {period.title()} Review\n\n"
             f"- date_utc: {ts.isoformat()}\n"
