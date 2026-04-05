@@ -1,2 +1,52 @@
 # Operations Log
 
+- 2026-04-05T11:42:01.190279+00:00 | create_review: data/reviews/daily_20260405_78051838.md
+- 2026-04-05T11:43:40.463749+00:00 | save_capture: data/inbox/20260405_114340_459642_78051838.md
+- 2026-04-05T11:45:14.715431+00:00 | search: query='подскажи что сейчас уже записано в моем втором цифровом мозге' results=1
+- 2026-04-05T11:45:56.104018+00:00 | create_review: data/reviews/daily_20260405_78051838_v2.md
+- 2026-04-05T14:03:20.144875+00:00 | message_received | user_id=78051838 | len=33
+- 2026-04-05T14:03:20.146187+00:00 | intent_detected | intent=capture | user_id=78051838
+- 2026-04-05T14:03:20.771134+00:00 | clarification_shown | intent=capture | user_id=78051838
+- 2026-04-05T14:03:28.541632+00:00 | user_action_selected | action=confirm_capture | user_id=78051838
+- 2026-04-05T14:03:28.543449+00:00 | save_capture: data/inbox/20260405_140328_542379_78051838.md
+- 2026-04-05T14:03:28.543600+00:00 | capture_saved | path=data/inbox/20260405_140328_542379_78051838.md
+- 2026-04-05T14:03:59.952209+00:00 | message_received | user_id=78051838 | len=41
+- 2026-04-05T14:03:59.953048+00:00 | intent_detected | intent=capture | user_id=78051838
+- 2026-04-05T14:04:00.599840+00:00 | clarification_shown | intent=capture | user_id=78051838
+- 2026-04-05T14:04:02.586898+00:00 | user_action_selected | action=cancel | user_id=78051838
+- 2026-04-05T14:04:21.551917+00:00 | message_received | user_id=78051838 | len=32
+- 2026-04-05T14:04:21.553188+00:00 | intent_detected | intent=ask | user_id=78051838
+- 2026-04-05T14:04:22.044105+00:00 | clarification_shown | intent=ask | user_id=78051838
+- 2026-04-05T14:04:38.721706+00:00 | user_action_selected | action=confirm_ask | user_id=78051838
+- 2026-04-05T14:04:38.729990+00:00 | search: query='Какие у меня есть задачи в базе?' results=1
+- 2026-04-05T14:04:38.730169+00:00 | ask_executed | query='Какие у меня есть задачи в базе?' | result_count=1
+- 2026-04-05T14:04:38.830570+00:00 | answer_returned | result_count=1
+- 2026-04-05T14:05:16.898294+00:00 | message_received | user_id=78051838 | len=46
+- 2026-04-05T14:05:16.899382+00:00 | intent_detected | intent=ask | user_id=78051838
+- 2026-04-05T14:05:17.354024+00:00 | clarification_shown | intent=ask | user_id=78051838
+- 2026-04-05T14:05:19.460169+00:00 | user_action_selected | action=confirm_ask | user_id=78051838
+- 2026-04-05T14:05:19.465367+00:00 | search: query='Найди записи про уборку за рабочим столом дома' results=2
+- 2026-04-05T14:05:19.465667+00:00 | ask_executed | query='Найди записи про уборку за рабочим столом дома' | result_count=2
+- 2026-04-05T14:05:19.619693+00:00 | answer_returned | result_count=2
+- 2026-04-05T14:06:01.777002+00:00 | message_received | user_id=78051838 | len=10
+- 2026-04-05T14:06:01.777930+00:00 | intent_detected | intent=capture | user_id=78051838
+- 2026-04-05T14:06:02.251613+00:00 | clarification_shown | intent=capture | user_id=78051838
+- 2026-04-05T14:06:04.547494+00:00 | user_action_selected | action=cancel | user_id=78051838
+- 2026-04-05T14:06:14.499626+00:00 | message_received | user_id=78051838 | len=13
+- 2026-04-05T14:06:14.500266+00:00 | intent_detected | intent=capture | user_id=78051838
+- 2026-04-05T14:06:15.032588+00:00 | clarification_shown | intent=capture | user_id=78051838
+- 2026-04-05T14:06:17.171081+00:00 | user_action_selected | action=cancel | user_id=78051838
+- 2026-04-05T14:06:43.734523+00:00 | message_received | user_id=78051838 | len=13
+- 2026-04-05T14:06:43.735529+00:00 | intent_detected | intent=capture | user_id=78051838
+- 2026-04-05T14:06:44.294868+00:00 | clarification_shown | intent=capture | user_id=78051838
+- 2026-04-05T14:06:52.300496+00:00 | message_received | user_id=78051838 | len=13
+- 2026-04-05T14:06:52.301228+00:00 | intent_detected | intent=capture | user_id=78051838
+- 2026-04-05T14:06:52.667167+00:00 | clarification_shown | intent=capture | user_id=78051838
+- 2026-04-05T14:07:40.129685+00:00 | save_capture: data/inbox/20260405_140740_126477_78051838.md
+- 2026-04-05T14:07:56.691756+00:00 | message_received | user_id=78051838 | len=19
+- 2026-04-05T14:07:56.692486+00:00 | intent_detected | intent=capture | user_id=78051838
+- 2026-04-05T14:07:57.128131+00:00 | clarification_shown | intent=capture | user_id=78051838
+- 2026-04-05T14:08:16.460685+00:00 | user_action_selected | action=cancel | user_id=78051838
+- 2026-04-05T14:08:39.159852+00:00 | search: query='какие бытовые задачи есть у меня в памяти' results=1
+- 2026-04-05T14:09:01.335933+00:00 | search: query='есть ли задачи на уборку рабочего стола' results=0
+- 2026-04-05T14:09:13.988361+00:00 | search: query='есть ли задачи на то, чтобы прибраться?' results=2

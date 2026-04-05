@@ -6,10 +6,17 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from openai import OpenAI
-from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.ext import (
+    Application,
+    CallbackQueryHandler,
+    CommandHandler,
+    ContextTypes,
+    MessageHandler,
+    filters,
+)
 
-from intents import Intent, is_delete_request, parse_intents
+from intents import classify_intent
 from storage import MarkdownStorage
 
 
@@ -22,6 +29,8 @@ DATA_DIR = os.getenv("DATA_DIR", "./data")
 storage = MarkdownStorage(DATA_DIR)
 openai_client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 
+_VALID_CALLBACK_DATA = {"cancel", "confirm_capture", "confirm_ask"}
+
 
 def _ensure_token() -> None:
     if not TELEGRAM_BOT_TOKEN:
@@ -30,11 +39,14 @@ def _ensure_token() -> None:
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
-        "Привет! Я Digital Brain MVP.\n"
-        "Отправь текст/голос, и я сохраню это в markdown.\n"
-        "Команды: /save, /ask, /review daily|weekly"
+        "Привет! Я Digital Brain — ваш второй мозг.\n"
+        "Отправьте текст, и я помогу сохранить его или найти нужную информацию из сохранённого."
     )
 
+
+# ---------------------------------------------------------------------------
+# Slash-command fallbacks (technical, not primary UX — must not regress)
+# ---------------------------------------------------------------------------
 
 async def save_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     text = " ".join(context.args).strip()
@@ -71,39 +83,148 @@ async def review_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     await update.message.reply_text(f"Создан review: {path}")
 
 
+# ---------------------------------------------------------------------------
+# Intent-first text flow (Stage 2A): classify → store state → show buttons
+# ---------------------------------------------------------------------------
+
+def _build_keyboard(intent: str) -> InlineKeyboardMarkup:
+    if intent == "capture":
+        buttons = [
+            InlineKeyboardButton("Отмена", callback_data="cancel"),
+            InlineKeyboardButton("Сохранить", callback_data="confirm_capture"),
+        ]
+        return InlineKeyboardMarkup([buttons])
+    if intent == "ask":
+        buttons = [
+            InlineKeyboardButton("Отмена", callback_data="cancel"),
+            InlineKeyboardButton("Задать вопрос", callback_data="confirm_ask"),
+        ]
+        return InlineKeyboardMarkup([buttons])
+    # unclear
+    return InlineKeyboardMarkup([[
+        InlineKeyboardButton("Отменить", callback_data="cancel"),
+        InlineKeyboardButton("Сохранить в базу", callback_data="confirm_capture"),
+        InlineKeyboardButton("Задать вопрос по базе", callback_data="confirm_ask"),
+    ]])
+
+
+def _confirmation_text(intent: str) -> str:
+    if intent == "capture":
+        return "Похоже, вы хотите сохранить это в Digital Brain."
+    if intent == "ask":
+        return "Похоже, вы хотите задать вопрос по сохранённым данным."
+    return "Уточните, какое действие вы хотите совершить."
+
+
 async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     text = (update.message.text or "").strip()
-    parsed = parse_intents(text)
+    user_id = update.effective_user.id
 
-    if parsed.needs_clarification:
-        await update.message.reply_text("Уточни, пожалуйста: сохранить, извлечь или обсудить?")
+    storage.log_operation(f"message_received | user_id={user_id} | len={len(text)}")
+
+    intent = classify_intent(text)
+    storage.log_operation(f"intent_detected | intent={intent} | user_id={user_id}")
+
+    keyboard = _build_keyboard(intent)
+    sent = await update.message.reply_text(_confirmation_text(intent), reply_markup=keyboard)
+
+    # Store pending state for on_callback. Overwrites any previous pending
+    # state — a new message always becomes the new independent input.
+    context.user_data["pending_text"] = text
+    context.user_data["pending_intent"] = intent
+    context.user_data["pending_message_id"] = sent.message_id
+
+    storage.log_operation(f"clarification_shown | intent={intent} | user_id={user_id}")
+
+
+# ---------------------------------------------------------------------------
+# Callback handler (Stage 2B): read state, guard stale, execute, reset
+# ---------------------------------------------------------------------------
+
+async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    user_id = update.effective_user.id
+
+    # Always answer the callback query first to dismiss the loading spinner.
+    await query.answer()
+
+    data = query.data
+    pending_text: str | None = context.user_data.get("pending_text")
+    pending_message_id: int | None = context.user_data.get("pending_message_id")
+
+    # --- Stale / invalid guard ---
+
+    if pending_text is None:
+        await query.message.reply_text("Действие устарело. Отправьте сообщение заново.")
         return
 
-    if is_delete_request(text):
-        await update.message.reply_text(
-            "Обнаружен запрос на удаление. Подтверди явно: YES_DELETE <что удалить>"
-        )
+    if query.message.message_id != pending_message_id:
+        # A new message replaced the pending state; this button is stale.
+        _clear_pending(context)
+        await query.message.reply_text("Действие устарело. Отправьте сообщение заново.")
         return
 
-    handled = []
-    for intent in parsed.intents:
-        if intent == Intent.CAPTURE:
-            path = storage.save_capture(text, source="telegram_text", user_id=update.effective_user.id)
-            handled.append(f"capture -> {path}")
-        elif intent == Intent.COMMAND:
-            results = storage.search(text, limit=3)
-            if results:
-                handled.append("command/search -> " + ", ".join(str(r.path) for r in results))
+    if data not in _VALID_CALLBACK_DATA:
+        storage.log_operation(f"error | handler=on_callback | unexpected callback_data={data!r}")
+        _clear_pending(context)
+        await query.message.reply_text("Неизвестное действие. Отправьте сообщение заново.")
+        return
+
+    # --- Valid action ---
+
+    storage.log_operation(f"user_action_selected | action={data} | user_id={user_id}")
+
+    if data == "cancel":
+        _clear_pending(context)
+        await query.message.reply_text("Отменено.")
+        return
+
+    if data == "confirm_capture":
+        try:
+            path = storage.save_capture(
+                content=pending_text,
+                source="telegram_text",
+                user_id=user_id,
+            )
+            storage.log_operation(f"capture_saved | path={path}")
+            _clear_pending(context)
+            await query.message.reply_text("Сохранено.")
+        except Exception as exc:
+            storage.log_operation(f"error | handler=on_callback | err={exc}")
+            _clear_pending(context)
+            await query.message.reply_text("Не удалось сохранить. Попробуйте ещё раз.")
+        return
+
+    if data == "confirm_ask":
+        try:
+            results = storage.search(pending_text, limit=5)
+            storage.log_operation(
+                f"ask_executed | query={pending_text!r} | result_count={len(results)}"
+            )
+            _clear_pending(context)
+            if not results:
+                await query.message.reply_text("Ничего не найдено в базе.")
             else:
-                handled.append("command/search -> no results")
-        elif intent == Intent.COACH:
-            handled.append("coach -> рекомендация: сформулируй цель, ограничения и горизонт планирования")
-        elif intent == Intent.REVIEW:
-            path = storage.create_review("daily", user_id=update.effective_user.id)
-            handled.append(f"review -> {path}")
+                lines = ["Найдено:"]
+                for r in results:
+                    lines.append(f"- {r.path}: {r.snippet[:140]}...")
+                await query.message.reply_text("\n".join(lines))
+            storage.log_operation(f"answer_returned | result_count={len(results)}")
+        except Exception as exc:
+            storage.log_operation(f"error | handler=on_callback | err={exc}")
+            _clear_pending(context)
+            await query.message.reply_text("Ошибка при поиске. Попробуйте ещё раз.")
 
-    await update.message.reply_text("Выполнено:\n" + "\n".join(f"- {h}" for h in handled))
 
+def _clear_pending(context: ContextTypes.DEFAULT_TYPE) -> None:
+    context.user_data.pop("pending_text", None)
+    context.user_data.pop("pending_intent", None)
+    context.user_data.pop("pending_message_id", None)
+
+
+# ---------------------------------------------------------------------------
+# Voice handler — unchanged; routes directly to save_capture (Phase 3 later)
+# ---------------------------------------------------------------------------
 
 async def on_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     voice = update.message.voice
@@ -137,6 +258,10 @@ async def on_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         temp_path.unlink(missing_ok=True)
 
 
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+
 def main() -> None:
     _ensure_token()
     app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
@@ -145,6 +270,8 @@ def main() -> None:
     app.add_handler(CommandHandler("save", save_cmd))
     app.add_handler(CommandHandler("ask", ask_cmd))
     app.add_handler(CommandHandler("review", review_cmd))
+    # Callback handler registered after commands, before free-text.
+    app.add_handler(CallbackQueryHandler(on_callback))
     app.add_handler(MessageHandler(filters.VOICE, on_voice))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_text))
 

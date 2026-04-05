@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+from typing import Literal
 
 
 class Intent(str, Enum):
@@ -58,3 +59,35 @@ def parse_intents(text: str) -> ParsedRequest:
 def is_delete_request(text: str) -> bool:
     t = text.lower()
     return "удали" in t or "delete" in t
+
+
+# Short-text ambiguity threshold: a soft hint, not a hard gate.
+# Texts shorter than this with no explicit signal are treated as unclear.
+_AMBIGUOUS_LEN = 8
+
+
+def classify_intent(text: str) -> Literal["capture", "ask", "unclear"]:
+    """Return a 3-way routing decision for confirmation UX.
+
+    Priority (first match wins):
+    1. COMMAND_WORDS present → ask
+    2. Text ends with '?' → ask
+    3. Very short text with no explicit signal → unclear (soft heuristic)
+    4. Default → capture
+    """
+    t = text.strip()
+    t_lower = t.lower()
+
+    # Explicit ask signals win regardless of length.
+    if any(word in t_lower for word in COMMAND_WORDS):
+        return "ask"
+    if t.endswith("?"):
+        return "ask"
+
+    # Short text with no clear signal is genuinely ambiguous.
+    # This is a soft heuristic — single nouns or names may still lean toward
+    # capture at the implementer's discretion; the threshold can be adjusted.
+    if len(t) < _AMBIGUOUS_LEN:
+        return "unclear"
+
+    return "capture"
