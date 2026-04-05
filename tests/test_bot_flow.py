@@ -303,13 +303,14 @@ class AskOutputFormatTests(unittest.TestCase):
         self.assertNotRegex(text, r"data/reviews")
 
     def test_no_frontmatter_source_field(self) -> None:
+        # Fixture uses actual storage format: list-prefixed fields (- key: value)
         from digital_brain_bot import _format_ask_results
-        snippet = "source: telegram_text\ncreated_at_utc: 2026-04-05T10:00:00\nuser_id: 42\nкофе заметка"
+        snippet = "- source: telegram_text\n- created_at_utc: 2026-04-05T10:00:00\n- user_id: 42\nкофе заметка"
         text = _format_ask_results([self._result(snippet)])
-        import re
-        self.assertNotRegex(text, r"(?m)^source:")
-        self.assertNotRegex(text, r"(?m)^created_at_utc:")
-        self.assertNotRegex(text, r"(?m)^user_id:")
+        self.assertNotIn("source:", text)
+        self.assertNotIn("created_at_utc:", text)
+        self.assertNotIn("user_id:", text)
+        self.assertIn("кофе заметка", text)
 
     def test_no_markdown_headers(self) -> None:
         from digital_brain_bot import _format_ask_results
@@ -346,6 +347,138 @@ class AskOutputFormatTests(unittest.TestCase):
         from digital_brain_bot import _format_ask_results
         text = _format_ask_results([self._result("уникальный текст про кофе")])
         self.assertIn("уникальный текст про кофе", text)
+
+    # --- Regression tests for Phase 2.1 hotfix ---
+    # These tests use fixtures that match actual storage output format.
+
+    def test_list_prefixed_frontmatter_stripped(self) -> None:
+        """List-prefixed frontmatter fields (- key: value) must not appear in output."""
+        from digital_brain_bot import _format_ask_results
+        snippet = (
+            "- created_at_utc: 2026-04-05T10:00:00+00:00\n"
+            "- source: telegram_text\n"
+            "- user_id: 42\n"
+            "кофе помогает сосредоточиться"
+        )
+        text = _format_ask_results([self._result(snippet)])
+        self.assertNotIn("created_at_utc", text)
+        self.assertNotIn("source:", text)
+        self.assertNotIn("user_id", text)
+        self.assertNotIn("telegram_text", text)
+        self.assertIn("кофе помогает сосредоточиться", text)
+
+    def test_section_headers_stripped(self) -> None:
+        """Structural section headers (# Capture, ## Content) must not appear in output."""
+        from digital_brain_bot import _format_ask_results
+        snippet = (
+            "# Capture\n"
+            "\n"
+            "- created_at_utc: 2026-04-05T10:00:00+00:00\n"
+            "\n"
+            "## Content\n"
+            "\n"
+            "кофе помогает сосредоточиться"
+        )
+        text = _format_ask_results([self._result(snippet)])
+        self.assertNotIn("Capture", text)
+        self.assertNotIn("Content", text)
+        self.assertNotIn("created_at_utc", text)
+        self.assertIn("кофе помогает сосредоточиться", text)
+
+    def test_realistic_note_snippet_multiline(self) -> None:
+        """Full realistic multiline note format — only user content must appear."""
+        from digital_brain_bot import _format_ask_results
+        snippet = (
+            "# Capture\n"
+            "\n"
+            "- created_at_utc: 2026-04-05T12:00:00+00:00\n"
+            "- source: telegram_text\n"
+            "- user_id: 123456\n"
+            "\n"
+            "## Content\n"
+            "\n"
+            "купил книгу по Python вчера вечером"
+        )
+        text = _format_ask_results([self._result(snippet)])
+        self.assertIn("купил книгу по Python вчера вечером", text)
+        self.assertNotIn("created_at_utc", text)
+        self.assertNotIn("source:", text)
+        self.assertNotIn("user_id", text)
+        self.assertNotIn("Capture", text)
+        self.assertNotIn("Content", text)
+        self.assertNotIn("123456", text)
+
+    def test_realistic_note_snippet_collapsed(self) -> None:
+        """Collapsed snippet (newlines replaced by spaces, as storage.search() produces) —
+        must produce the same clean output as the multiline form."""
+        from digital_brain_bot import _format_ask_results
+        # This is what storage.search() actually returns: \n → " "
+        snippet = (
+            "# Capture  "
+            "- created_at_utc: 2026-04-05T12:00:00+00:00 "
+            "- source: telegram_text "
+            "- user_id: 123456  "
+            "## Content  "
+            "купил книгу по Python вчера вечером"
+        )
+        text = _format_ask_results([self._result(snippet)])
+        self.assertIn("купил книгу по Python вчера вечером", text)
+        self.assertNotIn("created_at_utc", text)
+        self.assertNotIn("source:", text)
+        self.assertNotIn("user_id", text)
+        self.assertNotIn("Capture", text)
+        self.assertNotIn("Content", text)
+        self.assertNotIn("123456", text)
+
+    def test_collapsed_snippet_no_metadata_leakage(self) -> None:
+        """Collapsed snippet containing metadata inline must not leak any metadata field."""
+        from digital_brain_bot import _format_ask_results
+        # Simulates snippet window starting mid-file in the frontmatter area
+        snippet = (
+            "created_at_utc: 2026-04-05T12:00:00+00:00 "
+            "- source: telegram_text "
+            "- user_id: 123456  "
+            "## Content  "
+            "заметка про кофе и работу"
+        )
+        text = _format_ask_results([self._result(snippet)])
+        self.assertNotIn("created_at_utc", text)
+        self.assertNotIn("source:", text)
+        self.assertNotIn("user_id", text)
+        self.assertNotIn("Content", text)
+        self.assertIn("заметка про кофе и работу", text)
+
+
+class AskOutputEndToEndTests(unittest.TestCase):
+    """End-to-end tests: real MarkdownStorage file creation + search + format."""
+
+    def test_search_and_format_end_to_end(self) -> None:
+        """Create a real note via MarkdownStorage, search it, format results —
+        verify that only user content appears, no metadata leaks."""
+        import tempfile
+        from digital_brain_bot import _format_ask_results
+        from storage import MarkdownStorage
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = MarkdownStorage(tmpdir)
+            store.save_capture(
+                content="купил книгу про Python вчера вечером",
+                source="telegram_text",
+                user_id=99999,
+            )
+            results = store.search("Python", limit=5)
+            self.assertTrue(len(results) > 0, "Expected at least one result")
+
+            text = _format_ask_results(results)
+
+            self.assertIn("купил книгу про Python вчера вечером", text)
+            self.assertNotIn("created_at_utc", text)
+            self.assertNotIn("source:", text)
+            self.assertNotIn("user_id", text)
+            self.assertNotIn("Capture", text)
+            self.assertNotIn("Content", text)
+            self.assertNotIn("99999", text)
+            self.assertNotIn(".md", text)
 
 
 class AskOutputWiringTests(unittest.IsolatedAsyncioTestCase):

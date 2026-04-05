@@ -55,25 +55,35 @@ def _clean_snippet(raw: str) -> str:
     Removes: frontmatter key-value lines, markdown headers (#),
     markdown separators (---), leading list markers (- ), bold/italic
     markers (**/**/*), and collapses blank lines.
+
+    Handles both multiline snippets (containing \\n) and collapsed snippets
+    where newlines were replaced by spaces (as storage.search() currently
+    produces). In the collapsed case, logical segments are recovered by
+    splitting on two or more consecutive spaces, which correspond to the
+    former blank-line boundaries between sections.
     """
-    lines = raw.splitlines()
+    if "\n" in raw:
+        lines = raw.splitlines()
+    else:
+        lines = re.split(r" {2,}", raw)
+
     cleaned: list[str] = []
     for line in lines:
         s = line.strip()
         if not s:
             continue
-        # Frontmatter / metadata fields: "key: value" at line start
-        if re.match(r"^\w[\w_]*:\s", s):
-            continue
         # Markdown horizontal rules / YAML front-matter fences
         if re.match(r"^-{3,}$", s) or re.match(r"^\*{3,}$", s):
             continue
-        # Markdown headers
+        # Markdown headers — skip entirely (structural labels, not content)
         if s.startswith("#"):
-            s = s.lstrip("#").strip()
-        # Leading list markers
+            continue
+        # Strip leading list marker before checking for frontmatter fields
         if s.startswith("- "):
             s = s[2:].strip()
+        # Frontmatter / metadata fields: "key: value" at segment start
+        if re.match(r"^\w[\w_]*:\s", s):
+            continue
         # Bold/italic markers
         s = re.sub(r"\*{1,2}(.+?)\*{1,2}", r"\1", s)
         if s:

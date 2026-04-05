@@ -81,3 +81,21 @@
 - 2026-04-05T15:35:57.154187+00:00 | clarification_shown | intent=ask | user_id=78051838
 - 2026-04-05T15:36:13.751958+00:00 | search: query='магний' results=1
 - 2026-04-05T15:36:28.927638+00:00 | save_capture: data/inbox/20260405_153628_925684_78051838.md
+- 2026-04-05T16:26:32.177268+00:00 | message_received | user_id=78051838 | len=63
+- 2026-04-05T16:26:32.181798+00:00 | intent_detected | intent=ask | user_id=78051838
+- 2026-04-05T16:26:32.850097+00:00 | clarification_shown | intent=ask | user_id=78051838
+- 2026-04-05T16:26:34.523317+00:00 | user_action_selected | action=confirm_ask | user_id=78051838
+- 2026-04-05T16:26:34.531653+00:00 | search: query='Какие заметки я вообще оставлял сегодня и что в них содержится?' results=3
+- 2026-04-05T16:26:34.531936+00:00 | ask_executed | query='Какие заметки я вообще оставлял сегодня и что в них содержится?' | result_count=3
+- 2026-04-05T16:26:34.827725+00:00 | answer_returned | result_count=3
+- 2026-04-05T16:27:38.064056+00:00 | message_received | user_id=78051838 | len=45
+- 2026-04-05T16:27:38.065063+00:00 | intent_detected | intent=capture | user_id=78051838
+- 2026-04-05T16:27:38.729944+00:00 | clarification_shown | intent=capture | user_id=78051838
+- 2026-04-05T16:27:47.722600+00:00 | user_action_selected | action=cancel | user_id=78051838
+- 2026-04-05T16:27:52.630279+00:00 | message_received | user_id=78051838 | len=46
+- 2026-04-05T16:27:52.630622+00:00 | intent_detected | intent=ask | user_id=78051838
+- 2026-04-05T16:27:52.768511+00:00 | clarification_shown | intent=ask | user_id=78051838
+- 2026-04-05T16:27:55.265824+00:00 | user_action_selected | action=confirm_ask | user_id=78051838
+- 2026-04-05T16:27:55.271971+00:00 | search: query='Подскажи последнюю задачу которую я записывал?' results=2
+- 2026-04-05T16:27:55.272241+00:00 | ask_executed | query='Подскажи последнюю задачу которую я записывал?' | result_count=2
+- 2026-04-05T16:27:55.480930+00:00 | answer_returned | result_count=2
