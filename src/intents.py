@@ -35,6 +35,8 @@ class ParsedRequest:
     needs_clarification: bool
 
 
+# NOTE: reserved for future multi-intent UI — not called by the bot.
+# classify_intent() below is the active routing function.
 def parse_intents(text: str) -> ParsedRequest:
     t = text.lower().strip()
     detected: list[Intent] = []
@@ -61,33 +63,62 @@ def is_delete_request(text: str) -> bool:
     return "удали" in t or "delete" in t
 
 
-# Short-text ambiguity threshold: a soft hint, not a hard gate.
-# Texts shorter than this with no explicit signal are treated as unclear.
-_AMBIGUOUS_LEN = 8
+# Tokens that carry no intent — sending one of these alone means the
+# user's goal cannot be determined without asking.  Keep this list small
+# and add to it only when a token is genuinely content-free.
+_UNCLEAR_TOKENS = {
+    "да", "нет", "ок", "окей", "ладно", "хорошо",
+    "yes", "no", "ok", "okay", "sure", "yep", "nope",
+    "hi", "hello", "привет", "хай",
+}
+
+# Russian question-starter words that signal a query even without '?'.
+# Scoped to common single-word starters — not full phrase matching.
+_QUESTION_STARTERS = {
+    "что", "как", "где", "когда", "зачем", "почему",
+    "скажи", "расскажи",
+}
 
 
 def classify_intent(text: str) -> Literal["capture", "ask", "unclear"]:
-    """Return a 3-way routing decision for confirmation UX.
+    """Return a 3-way routing decision for the confirmation UX.
 
-    Priority (first match wins):
-    1. COMMAND_WORDS present → ask
-    2. Text ends with '?' → ask
-    3. Very short text with no explicit signal → unclear (soft heuristic)
-    4. Default → capture
+    Decision logic (first match wins — no length thresholds):
+
+    1. COMMAND_WORDS present → "ask"
+       (найди, покажи, find, extract, …)
+    2. Text ends with "?" → "ask"
+    3. Text starts with a question-starter word → "ask"
+       (что, как, где, когда, зачем, почему, скажи, расскажи)
+    4. Text (stripped, lowercased) matches an explicit non-content token → "unclear"
+       (да, нет, ок, yes, no, ok, hi, привет, …)
+    5. Empty / whitespace-only → "unclear"
+    6. Default → "capture"
+
+    To tune routing: extend COMMAND_WORDS, _QUESTION_STARTERS, or
+    _UNCLEAR_TOKENS — do not add length-based conditions.
     """
     t = text.strip()
     t_lower = t.lower()
 
-    # Explicit ask signals win regardless of length.
+    if not t:
+        return "unclear"
+
+    # Explicit search/command words → ask.
     if any(word in t_lower for word in COMMAND_WORDS):
         return "ask"
+
+    # Question mark at end → ask.
     if t.endswith("?"):
         return "ask"
 
-    # Short text with no clear signal is genuinely ambiguous.
-    # This is a soft heuristic — single nouns or names may still lean toward
-    # capture at the implementer's discretion; the threshold can be adjusted.
-    if len(t) < _AMBIGUOUS_LEN:
+    # Question-starter as first word → ask.
+    first_word = t_lower.split()[0]
+    if first_word in _QUESTION_STARTERS:
+        return "ask"
+
+    # Known non-content tokens → unclear.
+    if t_lower in _UNCLEAR_TOKENS:
         return "unclear"
 
     return "capture"

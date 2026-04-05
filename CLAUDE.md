@@ -32,8 +32,8 @@ This is a Telegram bot that acts as a personal "digital brain": it receives text
 
 **Request flow:**
 
-1. `digital_brain_bot.py` — entry point and orchestration. Telegram handlers call `parse_intents()` to classify free-text messages, then dispatch to `MarkdownStorage` methods. Explicit commands (`/save`, `/ask`, `/review`) bypass intent detection.
-2. `intents.py` — keyword-based intent classifier. Returns a `ParsedRequest` with a list of `Intent` values (`CAPTURE`, `COMMAND`, `COACH`, `REVIEW`) and a `needs_clarification` flag. Default intent when no keywords match is `CAPTURE`.
+1. `digital_brain_bot.py` — entry point and orchestration. Free-text messages go through `classify_intent()` → pending state → confirmation buttons → `on_callback()`. `_format_ask_results()` formats search output (no file paths, no markdown noise). Explicit commands (`/save`, `/ask`, `/review`) bypass intent detection.
+2. `intents.py` — semantic signal-based intent classifier. `classify_intent()` returns `"capture"`, `"ask"`, or `"unclear"` using COMMAND_WORDS, question-mark suffix, question-starter words, and an explicit non-content token list — no length thresholds. `parse_intents()` is defined but reserved for a future multi-intent UI; it is not called by the bot.
 3. `storage.py` — all disk I/O. `MarkdownStorage` writes captures to `data/inbox/`, reviews to `data/reviews/`, and appends every operation to `data/logs/operations.md`. `search()` does a simple term-frequency scan across all `.md` files. File uniqueness on timestamp collisions is handled by `_resolve_unique_path()`.
 
 **Data layout (`data/`):**

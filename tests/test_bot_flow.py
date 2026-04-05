@@ -284,6 +284,120 @@ class OnCallbackStaleTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("неизвестное", reply_text.lower())
 
 
+class AskOutputFormatTests(unittest.TestCase):
+    """Unit tests for _format_ask_results() — no file paths, no markdown noise,
+    no frontmatter leakage, grounding line present."""
+
+    def _result(self, snippet: str, path: str = "/data/inbox/20260405_140000_000000_42.md") -> MagicMock:
+        r = MagicMock()
+        r.path = Path(path)
+        r.snippet = snippet
+        r.score = 1
+        return r
+
+    def test_no_file_paths_in_output(self) -> None:
+        from digital_brain_bot import _format_ask_results
+        text = _format_ask_results([self._result("кофе помогает сосредоточиться")])
+        self.assertNotIn(".md", text)
+        self.assertNotRegex(text, r"data/inbox")
+        self.assertNotRegex(text, r"data/reviews")
+
+    def test_no_frontmatter_source_field(self) -> None:
+        from digital_brain_bot import _format_ask_results
+        snippet = "source: telegram_text\ncreated_at_utc: 2026-04-05T10:00:00\nuser_id: 42\nкофе заметка"
+        text = _format_ask_results([self._result(snippet)])
+        import re
+        self.assertNotRegex(text, r"(?m)^source:")
+        self.assertNotRegex(text, r"(?m)^created_at_utc:")
+        self.assertNotRegex(text, r"(?m)^user_id:")
+
+    def test_no_markdown_headers(self) -> None:
+        from digital_brain_bot import _format_ask_results
+        snippet = "# Заголовок заметки\nнормальный текст"
+        text = _format_ask_results([self._result(snippet)])
+        self.assertNotRegex(text, r"(?m)^#")
+
+    def test_no_markdown_separators(self) -> None:
+        from digital_brain_bot import _format_ask_results
+        snippet = "---\nнормальный текст"
+        text = _format_ask_results([self._result(snippet)])
+        self.assertNotIn("---", text)
+
+    def test_no_markdown_list_markers(self) -> None:
+        from digital_brain_bot import _format_ask_results
+        snippet = "- пункт списка\nнормальный текст"
+        text = _format_ask_results([self._result(snippet)])
+        self.assertNotRegex(text, r"(?m)^- ")
+
+    def test_grounding_line_singular(self) -> None:
+        from digital_brain_bot import _format_ask_results
+        text = _format_ask_results([self._result("кофе заметка")])
+        self.assertIn("Нашёл в", text)
+        self.assertIn("1", text)
+
+    def test_grounding_line_plural(self) -> None:
+        from digital_brain_bot import _format_ask_results
+        results = [self._result("первая заметка"), self._result("вторая заметка")]
+        text = _format_ask_results(results)
+        self.assertIn("Нашёл в", text)
+        self.assertIn("2", text)
+
+    def test_snippet_content_present(self) -> None:
+        from digital_brain_bot import _format_ask_results
+        text = _format_ask_results([self._result("уникальный текст про кофе")])
+        self.assertIn("уникальный текст про кофе", text)
+
+
+class AskOutputWiringTests(unittest.IsolatedAsyncioTestCase):
+    """Integration tests — verify the formatter is wired through both
+    the confirm_ask callback and the /ask slash command."""
+
+    async def test_confirm_ask_reply_has_no_file_paths(self) -> None:
+        from digital_brain_bot import on_callback
+
+        ctx = _make_context({
+            "pending_text": "найди кофе",
+            "pending_intent": "ask",
+            "pending_message_id": 101,
+        })
+        update = _make_callback_update("confirm_ask", bot_message_id=101)
+
+        fake_result = MagicMock()
+        fake_result.path = Path("/data/inbox/20260405_note.md")
+        fake_result.snippet = "кофе помогает сосредоточиться"
+        fake_result.score = 1
+
+        with patch("digital_brain_bot.storage") as mock_storage:
+            mock_storage.search.return_value = [fake_result]
+            mock_storage.log_operation = MagicMock()
+            await on_callback(update, ctx)
+
+        reply_text = update.callback_query.message.reply_text.call_args.args[0]
+        self.assertNotIn(".md", reply_text)
+        self.assertIn("Нашёл в", reply_text)
+
+    async def test_ask_cmd_reply_has_no_file_paths(self) -> None:
+        from digital_brain_bot import ask_cmd
+
+        update = MagicMock()
+        update.message.reply_text = AsyncMock()
+        ctx = MagicMock()
+        ctx.args = ["кофе"]
+
+        fake_result = MagicMock()
+        fake_result.path = Path("/data/inbox/20260405_note.md")
+        fake_result.snippet = "кофе помогает сосредоточиться"
+        fake_result.score = 1
+
+        with patch("digital_brain_bot.storage") as mock_storage:
+            mock_storage.search.return_value = [fake_result]
+            await ask_cmd(update, ctx)
+
+        reply_text = update.message.reply_text.call_args.args[0]
+        self.assertNotIn(".md", reply_text)
+        self.assertIn("Нашёл в", reply_text)
+
+
 class SlashCommandCompatibilityTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_save_cmd_calls_save_capture(self) -> None:

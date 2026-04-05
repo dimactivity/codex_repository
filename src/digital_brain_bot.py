@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 import tempfile
 from pathlib import Path
 
@@ -45,6 +46,58 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Ask output formatting — shared by /ask command and confirm_ask callback
+# ---------------------------------------------------------------------------
+
+def _clean_snippet(raw: str) -> str:
+    """Strip technical leakage from a raw file snippet.
+
+    Removes: frontmatter key-value lines, markdown headers (#),
+    markdown separators (---), leading list markers (- ), bold/italic
+    markers (**/**/*), and collapses blank lines.
+    """
+    lines = raw.splitlines()
+    cleaned: list[str] = []
+    for line in lines:
+        s = line.strip()
+        if not s:
+            continue
+        # Frontmatter / metadata fields: "key: value" at line start
+        if re.match(r"^\w[\w_]*:\s", s):
+            continue
+        # Markdown horizontal rules / YAML front-matter fences
+        if re.match(r"^-{3,}$", s) or re.match(r"^\*{3,}$", s):
+            continue
+        # Markdown headers
+        if s.startswith("#"):
+            s = s.lstrip("#").strip()
+        # Leading list markers
+        if s.startswith("- "):
+            s = s[2:].strip()
+        # Bold/italic markers
+        s = re.sub(r"\*{1,2}(.+?)\*{1,2}", r"\1", s)
+        if s:
+            cleaned.append(s)
+    return " ".join(cleaned)
+
+
+def _format_ask_results(results: list) -> str:
+    """Format a list of SearchResult objects as a human-friendly Telegram message.
+
+    Guarantees: no file paths, no frontmatter fields, no markdown noise.
+    Returns a grounding line followed by clean excerpts in guillemet quotes.
+    """
+    n = len(results)
+    grounding = f"Нашёл в 1 заметке:" if n == 1 else f"Нашёл в {n} заметках:"
+    parts = [grounding]
+    for r in results:
+        clean = _clean_snippet(r.snippet)
+        if clean:
+            parts.append(f"«{clean}»")
+    return "\n\n".join(parts)
+
+
+# ---------------------------------------------------------------------------
 # Slash-command fallbacks (technical, not primary UX — must not regress)
 # ---------------------------------------------------------------------------
 
@@ -68,10 +121,7 @@ async def ask_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("Ничего не найдено в базе.")
         return
 
-    lines = ["Найдено:"]
-    for r in results:
-        lines.append(f"- {r.path}: {r.snippet[:140]}...")
-    await update.message.reply_text("\n".join(lines))
+    await update.message.reply_text(_format_ask_results(results))
 
 
 async def review_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -205,10 +255,7 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             if not results:
                 await query.message.reply_text("Ничего не найдено в базе.")
             else:
-                lines = ["Найдено:"]
-                for r in results:
-                    lines.append(f"- {r.path}: {r.snippet[:140]}...")
-                await query.message.reply_text("\n".join(lines))
+                await query.message.reply_text(_format_ask_results(results))
             storage.log_operation(f"answer_returned | result_count={len(results)}")
         except Exception as exc:
             storage.log_operation(f"error | handler=on_callback | err={exc}")

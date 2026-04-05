@@ -50,3 +50,34 @@
 - 2026-04-05T14:08:39.159852+00:00 | search: query='какие бытовые задачи есть у меня в памяти' results=1
 - 2026-04-05T14:09:01.335933+00:00 | search: query='есть ли задачи на уборку рабочего стола' results=0
 - 2026-04-05T14:09:13.988361+00:00 | search: query='есть ли задачи на то, чтобы прибраться?' results=2
+- 2026-04-05T15:33:08.916949+00:00 | message_received | user_id=78051838 | len=21
+- 2026-04-05T15:33:08.921764+00:00 | intent_detected | intent=capture | user_id=78051838
+- 2026-04-05T15:33:09.564957+00:00 | clarification_shown | intent=capture | user_id=78051838
+- 2026-04-05T15:33:29.231228+00:00 | user_action_selected | action=confirm_capture | user_id=78051838
+- 2026-04-05T15:33:29.236645+00:00 | save_capture: data/inbox/20260405_153329_233262_78051838.md
+- 2026-04-05T15:33:29.236875+00:00 | capture_saved | path=data/inbox/20260405_153329_233262_78051838.md
+- 2026-04-05T15:33:52.341829+00:00 | message_received | user_id=78051838 | len=23
+- 2026-04-05T15:33:52.343658+00:00 | intent_detected | intent=ask | user_id=78051838
+- 2026-04-05T15:33:52.913118+00:00 | clarification_shown | intent=ask | user_id=78051838
+- 2026-04-05T15:33:56.033713+00:00 | user_action_selected | action=confirm_ask | user_id=78051838
+- 2026-04-05T15:33:56.041256+00:00 | search: query='найди записи про магний' results=2
+- 2026-04-05T15:33:56.041507+00:00 | ask_executed | query='найди записи про магний' | result_count=2
+- 2026-04-05T15:33:56.143332+00:00 | answer_returned | result_count=2
+- 2026-04-05T15:34:53.103408+00:00 | message_received | user_id=78051838 | len=6
+- 2026-04-05T15:34:53.104548+00:00 | intent_detected | intent=capture | user_id=78051838
+- 2026-04-05T15:34:53.636258+00:00 | clarification_shown | intent=capture | user_id=78051838
+- 2026-04-05T15:35:08.200972+00:00 | message_received | user_id=78051838 | len=26
+- 2026-04-05T15:35:08.202415+00:00 | intent_detected | intent=ask | user_id=78051838
+- 2026-04-05T15:35:08.524028+00:00 | clarification_shown | intent=ask | user_id=78051838
+- 2026-04-05T15:35:10.370791+00:00 | user_action_selected | action=confirm_ask | user_id=78051838
+- 2026-04-05T15:35:10.376293+00:00 | search: query='что я записывал про магний' results=3
+- 2026-04-05T15:35:10.376548+00:00 | ask_executed | query='что я записывал про магний' | result_count=3
+- 2026-04-05T15:35:10.478823+00:00 | answer_returned | result_count=3
+- 2026-04-05T15:35:49.423911+00:00 | message_received | user_id=78051838 | len=11
+- 2026-04-05T15:35:49.424952+00:00 | intent_detected | intent=capture | user_id=78051838
+- 2026-04-05T15:35:49.979210+00:00 | clarification_shown | intent=capture | user_id=78051838
+- 2026-04-05T15:35:56.734139+00:00 | message_received | user_id=78051838 | len=21
+- 2026-04-05T15:35:56.734600+00:00 | intent_detected | intent=ask | user_id=78051838
+- 2026-04-05T15:35:57.154187+00:00 | clarification_shown | intent=ask | user_id=78051838
+- 2026-04-05T15:36:13.751958+00:00 | search: query='магний' results=1
+- 2026-04-05T15:36:28.927638+00:00 | save_capture: data/inbox/20260405_153628_925684_78051838.md
